@@ -1,13 +1,17 @@
 fastapi
 uvicorn[standard]
-sqlalchemy[asyncio]
+gunicorn
+sqlalchemy>=2.0.0
 alembic
 asyncpg
 psycopg2-binary
 pgvector
+pydantic
 pydantic-settings
 python-jose[cryptography]
-passlib[bcrypt]
+passlib
+# Fixed version to prevent compatibility issues
+bcrypt==3.2.2
 python-multipart
 celery
 redis
@@ -18,4 +22,8 @@ openai
 google-generativeai
 flask
 flask-admin
+flask-login
 wtforms
+httpx
+# Required for async file uploads
+aiofiles
