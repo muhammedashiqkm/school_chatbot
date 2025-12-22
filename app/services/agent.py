@@ -3,7 +3,7 @@ from google.adk.models.lite_llm import LiteLlm
 from google.adk.models.google_llm import Gemini
 from app.services.tools import syllabus_tool
 from app.config import settings
-from app.agents.instructions import SYLLABUS_AGENT_INSTRUCTIONS
+from app.instructions import SYLLABUS_AGENT_INSTRUCTIONS
 
 def get_agent(model_provider: str) -> Agent:
     """Factory function to create an ADK Agent based on the provider."""
