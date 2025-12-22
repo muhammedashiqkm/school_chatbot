@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     DEEPSEEK_API_KEY: Optional[str] = None
 
     OPENAI_MODEL_NAME: str = "gpt-4o"
-    GEMINI_MODEL_NAME: str = "gemini-1.5-flash"
+    GEMINI_MODEL_NAME: str = "gemini-2.5-flash"
     DEEPSEEK_MODEL_NAME: str = "deepseek-chat"
     
     GEMINI_EMBEDDING_MODEL_NAME: str = "models/text-embedding-005"

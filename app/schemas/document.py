@@ -25,3 +25,14 @@ class DocumentUrlRequest(BaseModel):
     syllabus: str
     class_name: str
     subject: str
+    
+class SubjectSearchRequest(BaseModel):
+    school: str
+    syllabus: str
+    class_name: str = Field(..., alias="class")
+    
+class DocumentListRequest(BaseModel):
+    college: str
+    syllabus: Optional[str] = None
+    class_name: Optional[str] = Field(None, alias="class") 
+    subject: Optional[str] = None

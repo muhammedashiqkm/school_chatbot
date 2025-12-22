@@ -4,7 +4,7 @@ from sqlalchemy import Column, String, ForeignKey, DateTime, func, Text, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, mapped_column
 from pgvector.sqlalchemy import Vector
-from app.db.base import Base
+from app.db.base_class import Base
 
 class DocStatus(str, enum.Enum):
     PENDING = "PENDING"
