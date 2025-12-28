@@ -6,6 +6,7 @@ flask
 flask-admin
 flask-login
 wtforms
+a2wsgi  # ✅ REQUIRED: Bridges FastAPI (ASGI) and Flask (WSGI)
 
 # Database & ORM
 sqlalchemy>=2.0.0
@@ -22,7 +23,7 @@ python-multipart
 # Security
 python-jose[cryptography]
 passlib
-bcrypt==3.2.2
+bcrypt==4.0.1  # ✅ RECOMMENDED: Use 4.0.1 to avoid 'no attribute __about__' errors with passlib
 
 # Background Tasks
 celery
@@ -39,4 +40,4 @@ langchain-text-splitters
 openai
 google-generativeai
 litellm
-google-adk  # Required for the Agent Development Kit
+google-adk

@@ -6,10 +6,11 @@ from app.config import settings
 
 async_engine = create_async_engine(
     settings.DATABASE_URL,
-    echo=False,              
-    pool_pre_ping=True,      
-    pool_size=10,           
-    max_overflow=20
+    echo=settings.DEBUG,
+    pool_pre_ping=True,   
+    pool_size=getattr(settings, "DB_POOL_SIZE", 20),
+    max_overflow=getattr(settings, "DB_MAX_OVERFLOW", 10),
+    pool_recycle=1800,    
 )
 
 AsyncSessionLocal = async_sessionmaker(
@@ -21,9 +22,11 @@ AsyncSessionLocal = async_sessionmaker(
 
 sync_engine = create_engine(
     settings.DATABASE_URL_SYNC,
+    echo=False,
     pool_pre_ping=True,
-    pool_size=5,
-    max_overflow=10
+    pool_size=getattr(settings, "DB_POOL_SIZE", 5),
+    max_overflow=getattr(settings, "DB_MAX_OVERFLOW", 10),
+    pool_recycle=1800,
 )
 
 SessionLocal = sessionmaker(

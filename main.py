@@ -1,15 +1,23 @@
+import os
+import logging
+import flask_admin
 from fastapi import FastAPI
-from fastapi.middleware.wsgi import WSGIMiddleware
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
-from app.api.v1 import auth, schools, documents, chat
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import RedirectResponse
+from a2wsgi import WSGIMiddleware 
+
+from app.api.v1.auth import router as auth_router
+from app.api.v1.school_routes import router as schools_router
+from app.api.v1.documents import router as documents_router
+from app.api.v1.chat import router as chat_router
+
 from app.config import settings
 from app.core.logger import setup_logging
-from app.admin.app import flask_app
-from app.db.base import Base
-from app.db.session import async_engine, SessionLocal
+from app.admin.app import create_admin_app
 
 setup_logging()
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title=settings.PROJECT_NAME)
 
@@ -21,30 +29,27 @@ app.add_middleware(
     allow_headers=["*"], 
 )
 
+app.include_router(auth_router, prefix=settings.API_V1_STR, tags=["Auth"])
+app.include_router(schools_router, prefix=settings.API_V1_STR, tags=["Schools"])
+app.include_router(documents_router, prefix=settings.API_V1_STR, tags=["Documents"])
+app.include_router(chat_router, prefix=settings.API_V1_STR, tags=["Chat"])
 
-app.include_router(auth.router, prefix=settings.API_V1_STR, tags=["Auth"])
-app.include_router(schools.router, prefix=settings.API_V1_STR, tags=["Schools"])
-app.include_router(documents.router, prefix=settings.API_V1_STR, tags=["Documents"])
-app.include_router(chat.router, prefix=settings.API_V1_STR, tags=["Chat"])
 
+try:
+    flask_admin_app = create_admin_app()
 
-app.mount("/admin", WSGIMiddleware(flask_app))
+    admin_static_path = os.path.join(os.path.dirname(flask_admin.__file__), 'static')
 
-@app.on_event("startup")
-async def init_db():
-    """
-    Runs on application startup.
-    1. Enables pgvector extension (Sync).
-    2. Creates database tables if they don't exist (Async).
-    """
+    app.mount("/admin/static", StaticFiles(directory=admin_static_path), name="admin_static")
     
+    app.mount("/admin/admin/static", StaticFiles(directory=admin_static_path), name="admin_static_nested")
 
-    try:
-        with SessionLocal() as session:
-            session.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-            session.commit()
-    except Exception as e:
-        print(f"WARNING: Could not enable vector extension: {e}")
+    app.mount("/admin", WSGIMiddleware(flask_admin_app))
+    
+    logger.info("✅ Flask Admin mounted successfully (Dual Static Bypass Enabled)")
+except Exception as e:
+    logger.critical(f"❌ Failed to mount Admin Panel: {e}")
 
-    async with async_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+@app.get("/")
+async def root():
+    return RedirectResponse(url="/admin")

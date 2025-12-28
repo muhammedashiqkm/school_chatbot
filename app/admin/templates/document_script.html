@@ -1,0 +1,60 @@
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    // Flask-Admin uses the column name as the input name
+    const schoolSelect = document.querySelector('[name="school_name"]');
+    const syllabusSelect = document.querySelector('[name="syllabus"]');
+    const classSelect = document.querySelector('[name="class_name"]');
+    const subjectSelect = document.querySelector('[name="subject"]');
+
+    if (!schoolSelect) return; // Exit if not on the document form
+
+    // Helper to update a single dropdown
+    const updateDropdown = (selectElement, options, currentValue) => {
+        selectElement.innerHTML = ''; // Clear existing
+        
+        // Add options
+        options.forEach(opt => {
+            const option = new Option(opt, opt);
+            if (opt === currentValue) option.selected = true;
+            selectElement.appendChild(option);
+        });
+    };
+
+    // Main function to fetch data and update UI
+    const refreshOptions = async () => {
+        const schoolName = schoolSelect.value;
+        if (!schoolName) return;
+
+        try {
+            // Call your FastAPI endpoint
+            const response = await fetch(`/api/v1/schools/options?school_name=${encodeURIComponent(schoolName)}`);
+            if (!response.ok) return; // Fail silently if API error
+            
+            const data = await response.json();
+
+            // Get currently selected values (useful in Edit mode)
+            // Flask-Admin select2 fields might hide the real value, check standard value first
+            const currentSyllabus = syllabusSelect.value;
+            const currentClass = classSelect.value;
+            const currentSubject = subjectSelect.value;
+
+            // Update dependent dropdowns
+            if (data.syllabi) updateDropdown(syllabusSelect, data.syllabi, currentSyllabus);
+            if (data.classes) updateDropdown(classSelect, data.classes, currentClass);
+            if (data.subjects) updateDropdown(subjectSelect, data.subjects, currentSubject);
+
+        } catch (error) {
+            console.error('Failed to fetch school details:', error);
+        }
+    };
+
+    // Trigger on change
+    schoolSelect.addEventListener('change', refreshOptions);
+
+    // Trigger on load (for Edit Page)
+    if (schoolSelect.value) {
+        // Slight delay to ensure Flask-Admin Select2 widgets are ready
+        setTimeout(refreshOptions, 500);
+    }
+});
+</script>

@@ -1,0 +1,10 @@
+{% extends 'admin/master.html' %}
+{% block body %}
+<div style="text-align: center; padding: 50px;">
+    <h1 style="font-size: 60px; color: #dc3545;">403</h1>
+    <h3>Access Denied</h3>
+    <p>You do not have permission to view this page.</p>
+    <a href="{{ url_for('admin.index') }}" class="btn btn-secondary">Go to Dashboard</a>
+    <a href="{{ url_for('admin_logout') }}" class="btn btn-danger">Logout</a>
+</div>
+{% endblock %}

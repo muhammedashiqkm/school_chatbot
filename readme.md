@@ -1,206 +1,329 @@
-# Syllabus Q\&A Chatbot (RAG System)
+```markdown
+# Syllabus QA - AI-Powered Academic Assistant
 
-A production-ready backend service that answers questions about school/college syllabi and course documents using Retrieval-Augmented Generation (RAG).
-
-Built with **FastAPI**, **PostgreSQL (pgvector)**, **Celery**, and **Gemini/OpenAI**.
+Syllabus QA is an AI-powered academic assistant designed to help students and teachers interact with their specific curriculum. It allows admins to upload textbooks (PDFs), which are processed and indexed for retrieval. Users can then chat with the system to get answers strictly based on their syllabus using Retrieval-Augmented Generation (RAG).
 
 ## 🚀 Features
 
-  * **RAG Pipeline:** PDF ingestion, text chunking, and vector search.
-  * **Asynchronous Processing:** Celery + Redis for background PDF processing.
-  * **Vector Search:** PostgreSQL with `pgvector` for efficient similarity search.
-  * **Multi-LLM Support:** Chat via Gemini, OpenAI, or DeepSeek.
-  * **Strict Embeddings:** Uses Google Gemini (`text-embedding-004`) for low-cost, high-performance embeddings (768 dimensions).
-  * **Admin Dashboard:** Flask-Admin interface for managing users, schools, and documents.
-  * **Secure:** JWT Authentication for API, Session-based auth for Admin.
+* **RAG Architecture:** Answers are grounded strictly in uploaded textbook content to prevent hallucinations.
+* **Multi-Model Support:** Integrates with **Gemini**, **OpenAI**, and **Deepseek**.
+* **Smart Ingestion:** Automatically processes PDFs into vector embeddings using `pgvector`.
+* **Hierarchical Content:** Organizes data via a strict `School > Syllabus > Class > Subject` hierarchy.
+* **Hybrid Admin Panel:**
+    * **FastAPI** for high-performance API endpoints.
+    * **Flask-Admin** for a robust, user-friendly content management dashboard.
+* **Role-Based Access:** Secure endpoints with JWT authentication.
 
-## 🛠 Tech Stack
+---
 
-  * **API:** FastAPI (Async)
-  * **Database:** PostgreSQL + pgvector
-  * **ORM:** SQLAlchemy (Async + Sync)
-  * **Task Queue:** Celery + Redis
-  * **LLM Integration:** Google GenAI SDK / OpenAI SDK
-  * **Admin UI:** Flask-Admin
+## 🛠️ Tech Stack
 
------
+* **Backend:** Python 3.12+, FastAPI, Flask
+* **Database:** PostgreSQL (with `pgvector` extension), SQLAlchemy (Async & Sync)
+* **Migrations:** Alembic
+* **Task Queue:** Celery, Redis
+* **Containerization:** Docker, Docker Compose
 
-## 📋 Prerequisites
+---
 
-1.  **PostgreSQL (External):** You must have a PostgreSQL instance running.
-2.  **Redis:** Required for the task queue.
-3.  **Python 3.10+** (if running locally).
-4.  **Docker & Docker Compose** (recommended for deployment).
+## ⚙️ Setup & Installation
 
-### Database Setup
+### 1. Prerequisites
 
-Before running the app, connect to your PostgreSQL database and enable the vector extension:
+* Docker & Docker Compose installed.
+* A `.env` file in the root directory.
 
-```sql
-CREATE EXTENSION vector;
-```
+### 2. Environment Variables (`.env`)
 
-*Note: This project is configured for **768 dimensions** (Gemini Embeddings).*
-
------
-
-## ⚙️ Configuration
-
-Create a `.env` file in the root directory:
+Create a file named `.env` in the root directory with the following configuration:
 
 ```properties
-PROJECT_NAME=SyllabusQA
-API_V1_STR=/api/v1
-SECRET_KEY=super_secure_random_string
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=1440
+PROJECT_NAME="Syllabus QA"
+API_V1_STR="/api/v1"
 
-# Database (Ensure this points to your external DB)
-# For Docker: Use 'host.docker.internal' to access host DB on Mac/Windows, or the IP on Linux.
-POSTGRES_SERVER=host.docker.internal
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=yourpassword
-POSTGRES_DB=syllabus_qa
-POSTGRES_PORT=5432
-
-# Derived Connection Strings
-DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_SERVER}:${POSTGRES_PORT}/${POSTGRES_DB}
-DATABASE_URL_SYNC=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_SERVER}:${POSTGRES_PORT}/${POSTGRES_DB}
-
-# Redis
+# Database Connection
+# Note: Host is 'db' when running inside Docker, 'localhost' if running locally
+DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/syllabusqa
+DATABASE_URL_SYNC=postgresql+psycopg2://postgres:password@db:5432/syllabusqa
 REDIS_URL=redis://redis:6379/0
 
-# LLM Keys
-# REQUIRED for Embeddings and RAG
-GEMINI_API_KEY=AIzaSy... 
-# Optional (if using these models for Chat)
-OPENAI_API_KEY=sk-...
-DEEPSEEK_API_KEY=sk-...
+# Security
+SECRET_KEY="change_this_to_a_secure_random_string"
+ALGORITHM="HS256"
+ACCESS_TOKEN_EXPIRE_HOURS=24
 
-# Storage
-UPLOAD_FOLDER=./uploads
+# AI Keys (At least one is required)
+GEMINI_API_KEY="your_gemini_key"
+OPENAI_API_KEY="your_openai_key"
+DEEPSEEK_API_KEY="your_deepseek_key"
+
+# Model Configuration
+GEMINI_MODEL_NAME="gemini-2.0-flash"
+GEMINI_EMBEDDING_MODEL_NAME="models/gemini-embedding-001"
+
 ```
 
------
+### 3. Run with Docker
 
-## 🐳 Running with Docker (Recommended)
-
-This setup runs the API and the Celery Worker. It assumes the Database is hosted externally (AWS RDS, or a local Postgres instance).
-
-1.  **Build and Start:**
-
-    ```bash
-    docker-compose up --build -d
-    ```
-
-2.  **Check Logs:**
-
-    ```bash
-    docker-compose logs -f
-    ```
-
-The API will be available at `http://localhost:8000`.
-
------
-
-## 💻 Running Locally (Development)
-
-1.  **Install Dependencies:**
-
-    ```bash
-    python -m venv venv
-    source venv/bin/activate  # or venv\Scripts\activate on Windows
-    pip install -r requirements.txt
-    ```
-
-2.  **Start Redis:**
-    Ensure Redis is running locally on port 6379.
-
-3.  **Start Celery Worker:**
-
-    ```bash
-    celery -A app.worker.tasks.celery_app worker --loglevel=info
-    ```
-
-4.  **Start FastAPI Server:**
-
-    ```bash
-    uvicorn main:app --reload
-    ```
-
------
-
-## 🔐 First Run: Create Admin User
-
-To access the Admin Panel (`/admin`), you need a superuser. Run the included script:
-
-**Docker:**
+Build and start the services:
 
 ```bash
-docker-compose exec api python scripts/create_superuser.py --username admin --password securepass
+docker-compose up --build
+
 ```
 
-**Local:**
+### 4. Database Initialization (Migrations)
+
+Since automatic initialization is disabled, you must run Alembic migrations to create the database tables and the vector extension.
+
+Run the following command inside the running API container:
 
 ```bash
-python scripts/create_superuser.py --username admin --password securepass
+docker-compose exec api alembic upgrade head
+
 ```
 
------
+### 5. Create Superuser (Admin Access)
 
-## 📖 API Documentation
+To log in to the Admin Panel (`/admin`), you must create a superuser account.
 
-Once running, access the interactive Swagger documentation:
+```bash
+docker-compose exec api python create_superuser.py
 
-  * **URL:** `http://localhost:8000/docs`
-
-### Key Endpoints
-
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `POST` | `/api/v1/login` | Get JWT Access Token |
-| `POST` | `/api/v1/schools` | Setup School, Class, and Subjects |
-| `POST` | `/api/v1/document` | Upload PDF or URL for ingestion |
-| `POST` | `/api/v1/chat` | Ask questions (RAG) |
-| `DELETE` | `/document/{id}` | Remove document |
-
------
-
-## 🧠 Architecture
-
-### Folder Structure
-
-```text
-syllabus_qa/
-├── app/
-│   ├── api/          # Route controllers
-│   ├── core/         # Config, Logging, Security
-│   ├── db/           # Database connection & Models
-│   ├── models/       # SQLAlchemy Tables
-│   ├── schemas/      # Pydantic Models
-│   ├── services/     # Business Logic (RAG, Auth, Ingestion)
-│   ├── worker/       # Celery Tasks
-│   └── admin/        # Flask-Admin Views
-├── logs/             # Application logs
-├── scripts/          # Utility scripts
-└── main.py           # Application Entrypoint
 ```
 
-### Ingestion Pipeline
+Follow the prompts to set a username and password.
 
-1.  **Upload:** User uploads PDF or provides URL.
-2.  **Task Queue:** API saves metadata and pushes ID to Redis.
-3.  **Processing (Celery):**
-      * Downloads PDF.
-      * Extracts text.
-      * Splits into chunks (1000 chars).
-      * **Embeds:** Uses `Gemini text-embedding-004` (768 dim).
-      * **Saves:** Stores vectors in Postgres (`pgvector`).
+---
 
-### RAG Chat Pipeline
+## 📚 API Documentation
 
-1.  **Query:** User sends question + filters (School/Class).
-2.  **Embed:** Question is embedded using Gemini.
-3.  **Search:** System performs Cosine Similarity search in Postgres.
-4.  **Generate:** Top 5 chunks + Question sent to LLM (Gemini/OpenAI/Deepseek).
-5.  **Response:** Answer returned to user.
+All endpoints are prefixed with `/api/v1`.
+
+### 🔐 Authentication
+
+#### Login
+
+**POST** `/login`
+Returns a JWT token required for Authorization headers (`Authorization: Bearer <token>`).
+
+* **Request Body:**
+```json
+{
+  "username": "admin",
+  "password": "securepassword"
+}
+
+```
+
+
+* **Response:** `{"access_token": "...", "token_type": "bearer"}`
+
+---
+
+### 🏫 Schools & Hierarchy
+
+#### Setup School Structure
+
+**POST** `/schools`
+Initialize metadata for a school. This establishes the valid dropdown options for documents.
+
+* **Body:**
+```json
+{
+  "school_name": "Greenwood High",
+  "syllabus": ["CBSE", "ICSE"],
+  "class": ["Class 10", "Class 12"],
+  "subject": ["Physics", "Math"],
+  "user_type": "teacher"
+}
+
+```
+
+
+
+---
+
+### 📄 Document Management
+
+#### 1. Create Document via URL
+
+Registers a document from a remote URL. The backend downloads and ingests it.
+
+* **Endpoint:** `POST /document/url`
+* **Body (JSON):**
+```json
+{
+  "url": "[https://example.com/physics_10.pdf](https://example.com/physics_10.pdf)",
+  "display_name": "Physics Chapter 1",
+  "school": "Greenwood High",
+  "syllabus": "CBSE",
+  "class_name": "Class 10",
+  "subject": "Physics"
+}
+
+```
+
+
+
+#### 2. Create Document via File Upload
+
+Uploads a local PDF file. Metadata is passed as a **JSON string** in the `body` form field.
+
+* **Endpoint:** `POST /document/upload`
+* **Content-Type:** `multipart/form-data`
+* **Form Data:**
+* `file`: (Binary PDF file)
+* `body`: (Stringified JSON)
+```json
+{
+  "display_name": "Physics Chapter 1",
+  "school": "Greenwood High",
+  "syllabus": "CBSE",
+  "class_name": "Class 10",
+  "subject": "Physics"
+}
+
+```
+
+
+
+
+
+#### 3. View Document PDF
+
+Streams the actual PDF file to the browser.
+
+* **Endpoint:** `GET /document/{doc_id}/view`
+* **Response:** Binary PDF stream (or `404 Not Found` if file is missing/URL-based).
+
+#### 4. Update Document File
+
+Replaces the file of an existing document ID.
+
+* **Behavior:** Deletes the old file, saves the new one, and triggers re-ingestion (re-embedding). The Document UUID remains the same.
+* **Endpoint:** `PUT /document/{doc_id}/upload`
+* **Form Data:**
+* `file`: (Binary PDF file)
+* `body`: (Optional JSON string to update metadata)
+
+
+
+#### 5. Update Document URL/Metadata
+
+Updates the URL or metadata of a document.
+
+* **Behavior:** If URL changes, deletes the local file (if any) and triggers re-ingestion.
+* **Endpoint:** `PUT /document/{doc_id}/url`
+* **Body:**
+```json
+{
+  "url": "[https://new-url.com/file.pdf](https://new-url.com/file.pdf)",
+  "display_name": "Updated Title",
+  "school": "Greenwood High",
+  "syllabus": "CBSE",
+  "class_name": "Class 10",
+  "subject": "Physics"
+}
+
+```
+
+
+
+#### 6. Search Subjects
+
+Returns available subjects for a specific Class/Syllabus combination (used for UI dropdowns).
+
+* **Endpoint:** `POST /document/subject/search`
+* **Body:**
+```json
+{
+  "school": "Greenwood High",
+  "syllabus": "CBSE",
+  "class_name": "Class 10"
+}
+
+```
+
+
+
+#### 7. List Documents
+
+Filter documents by hierarchy.
+
+* **Endpoint:** `POST /document_details`
+* **Body:**
+```json
+{
+  "college": "Greenwood High",
+  "syllabus": "CBSE",      // Optional
+  "class_name": "Class 10" // Optional
+}
+
+```
+
+
+
+#### 8. Delete Document
+
+Deletes the database record and removes the physical file from the disk.
+
+* **Endpoint:** `DELETE /document/{doc_id}`
+
+---
+
+### 💬 Chat (RAG)
+
+#### Send Message
+
+Interacts with the AI using the context of the uploaded documents.
+
+* **Endpoint:** `POST /chat`
+* **Body:**
+```json
+{
+  "chatbot_user_id": "session_123",
+  "question": "What is Newton's Second Law?",
+  "syllabus": "CBSE",
+  "class_name": "Class 10",
+  "subject": "Physics",
+  "model": "gemini"
+}
+
+```
+
+
+
+#### Clear Session
+
+Resets conversation history for the session.
+
+* **Endpoint:** `POST /clear_session`
+* **Body:**
+```json
+{
+  "chatbot_user_id": "session_123"
+}
+
+```
+
+
+
+---
+
+## 🖥️ Admin Panel
+
+Access the dashboard at: **`http://localhost:8000/admin`**
+
+* **Login:** Use credentials created via `create_superuser.py`.
+* **Capabilities:**
+* **Manage Hierarchy:** Create/Edit Schools, Syllabi, Classes, and Subjects.
+* **Document Oversight:** Monitor ingestion status (`PENDING`, `COMPLETED`, `FAILED`).
+* **Manual Overrides:** Edit document metadata or upload replacement files directly via the visual interface.
+* **Security:** Authentication protected with Flash message error handling.
+
+
+
+```
+
+```

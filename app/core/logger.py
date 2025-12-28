@@ -1,33 +1,53 @@
 import logging
 import sys
+from logging.config import dictConfig
 from app.config import settings
 
 def setup_logging():
     """
-    Configures the logging system.
-    In production (Docker/K8s), we log to stdout so the container runtime handles it.
+    Configures application logging using dictConfig.
+    - Captures 'uvicorn' and 'fastapi' logs.
+    - Sets logical levels based on environment.
+    - Uses a standard format for readability.
     """
-    log_level = logging.INFO
     
-    formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
+    log_level = "DEBUG" if settings.DEBUG else "INFO"
     
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setFormatter(formatter)
+    logging_config = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "default": {
+                "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+                "datefmt": "%Y-%m-%d %H:%M:%S",
+            },
+        },
+        "handlers": {
+            "console": {
+                "class": "logging.StreamHandler",
+                "stream": sys.stdout,
+                "formatter": "default",
+                "level": log_level,
+            },
+        },
+        "loggers": {
+            "app": {
+                "handlers": ["console"],
+                "level": log_level,
+                "propagate": False,
+            },
+            "uvicorn": {
+                "handlers": ["console"],
+                "level": "INFO", 
+                "propagate": False,
+            },
+            "passlib": {"handlers": ["console"], "level": "WARNING"},
+            "urllib3": {"handlers": ["console"], "level": "WARNING"},
+        },
+        "root": {
+            "handlers": ["console"],
+            "level": log_level,
+        },
+    }
 
-    root_logger = logging.getLogger()
-    root_logger.setLevel(log_level)
-
-    if root_logger.handlers:
-        root_logger.handlers = []
-    
-    root_logger.addHandler(console_handler)
-
-    logging.getLogger("passlib").setLevel(logging.WARNING)
-    logging.getLogger("urllib3").setLevel(logging.WARNING)
-
-    app_logger = logging.getLogger("app")
-    app_logger.setLevel(log_level)
-    app_logger.addHandler(console_handler)
-    app_logger.propagate = False
+    dictConfig(logging_config)

@@ -1,9 +1,11 @@
-import traceback
+import logging
 from celery import Celery
 from app.config import settings
 from app.db.session import SessionLocal
-from app.models.document import Document, DocStatus
+from app.models.document import Document
 from app.services.ingestion import IngestionService
+
+logger = logging.getLogger(__name__)
 
 celery_app = Celery("worker", broker=settings.REDIS_URL, backend=settings.REDIS_URL)
 
@@ -13,41 +15,33 @@ celery_app.conf.update(
     result_serializer="json",
     timezone="UTC",
     enable_utc=True,
-    task_acks_late=True, 
+    task_acks_late=True,
 )
 
 @celery_app.task(bind=True, max_retries=3)
 def ingest_pdf_task(self, doc_id_str: str):
     """
-    Background task to process a document:
-    1. Update status to PROCESSING.
-    2. Delegate logic to IngestionService (Download -> Chunk -> Embed -> Save).
-    3. Update status to COMPLETED (or FAILED).
+    Background task to process a document.
+    
+    Design Note:
+    We delegate the entire lifecycle (Status updates, Error handling, Embedding)
+    to IngestionService.process_document(). 
+    This avoids code duplication and ensures logic is consistent 
+    whether run via Celery or a standalone script.
     """
+    logger.info(f"Task started for Document ID: {doc_id_str}")
+    
     db = SessionLocal()
-    doc = db.query(Document).filter(Document.id == doc_id_str).first()
-    
-    if not doc:
-        db.close()
-        return
-
     try:
-        doc.status = DocStatus.PROCESSING
-        db.commit()
+        doc = db.query(Document).filter(Document.id == doc_id_str).first()
         
-        IngestionService.process_document(db, doc)
-    
-        doc.status = DocStatus.COMPLETED
-        db.commit()
+        if not doc:
+            logger.warning(f"Document {doc_id_str} not found in DB. Aborting task.")
+            return
 
+        IngestionService.process_document(db, doc)
+        
     except Exception as e:
-        error_trace = traceback.format_exc()
-        print(f"Task Failed: {error_trace}")
-        
-        doc.status = DocStatus.FAILED
-        doc.error = f"{str(e)}\n\n{error_trace}"
-        db.commit()
-    
-        
+        logger.error(f"Critical Worker Failure for {doc_id_str}: {e}", exc_info=True)
     finally:
         db.close()

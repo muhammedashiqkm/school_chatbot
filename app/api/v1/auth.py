@@ -22,7 +22,10 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
         )
     
     if not user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="User account is inactive"
+        )
         
     access_token = AuthService.create_access_token(subject=user.username)
     return {"access_token": access_token, "token_type": "bearer"}

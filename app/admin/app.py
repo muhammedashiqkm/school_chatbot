@@ -1,111 +1,115 @@
-from flask import Flask, redirect, url_for, request
+import os
+import logging
+from flask import Flask, redirect, url_for, request, render_template, flash
 from flask_admin import Admin, AdminIndexView, expose
+from flask_admin.menu import MenuLink
 from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user, login_required
+from sqlalchemy.orm import scoped_session
+
+from app.config import settings
 from app.db.session import SessionLocal
 from app.models.user import User
 from app.models.school import School, Syllabus, Class, Subject
 from app.models.document import Document
-from app.admin.views import (
-    UserView, 
-    SchoolView, 
-    SchoolRelatedView, 
-    DocumentView
-)
-from app.config import settings
+from app.admin.views import UserView, SchoolView, SchoolRelatedView, DocumentView
+from app.services.auth_service import AuthService
 
-flask_app = Flask(__name__)
-flask_app.secret_key = settings.SECRET_KEY
+logger = logging.getLogger(__name__)
 
-login_manager = LoginManager()
-login_manager.init_app(flask_app)
-login_manager.login_view = 'admin_login'
+def create_admin_app():
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    template_dir = os.path.join(base_dir, 'templates')
 
+    flask_app = Flask(
+        __name__, 
+        template_folder=template_dir
+    )
+    flask_app.secret_key = settings.SECRET_KEY
 
-class AdminUser(UserMixin):
-    def __init__(self, id, username, is_superuser):
-        self.id = id
-        self.username = username
-        self.is_superuser = is_superuser
+    db_session = scoped_session(SessionLocal)
 
-@login_manager.user_loader
-def load_user(user_id):
-    db = SessionLocal()
-    try:
-        u = db.query(User).get(int(user_id))
-        if u:
-            return AdminUser(u.id, u.username, u.is_superuser)
-    finally:
-        db.close()
-    return None
+    @flask_app.teardown_appcontext
+    def shutdown_session(exception=None):
+        db_session.remove()
 
+    login_manager = LoginManager()
+    login_manager.init_app(flask_app)
+    login_manager.login_view = 'admin_login'
 
-class MyAdminIndexView(AdminIndexView):
-    @expose('/')
-    def index(self):
-        if not current_user.is_authenticated:
-            return redirect(url_for('admin_login'))
-        return super(MyAdminIndexView, self).index()
+    class AdminUser(UserMixin):
+        def __init__(self, user):
+            self.id = user.id
+            self.username = user.username
+            self.is_superuser = user.is_superuser
 
-@flask_app.route('/')
-def root():
-    return redirect(url_for('admin.index'))
-
-@flask_app.route('/login', methods=['GET', 'POST'])
-def admin_login():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        
-        db = SessionLocal()
+    @login_manager.user_loader
+    def load_user(user_id):
         try:
-            user = db.query(User).filter(User.username == username).first()
-            
-            from app.services.auth_service import AuthService
-            
-            if user and user.is_superuser and AuthService.verify_password(password, user.password_hash):
-                login_user(AdminUser(user.id, user.username, user.is_superuser))
-                return redirect(url_for('admin.index'))
-            else:
-                return "Invalid credentials or not a superuser", 401
-        finally:
-            db.close()
-             
-    return """
-    <div style="display:flex; justify-content:center; align-items:center; height:100vh; background:#f4f4f4;">
-        <form method="POST" style="display:flex; flex-direction:column; gap:15px; padding:30px; background:white; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.1);">
-            <h3 style="margin:0 0 10px 0; text-align:center;">SyllabusQA Admin</h3>
-            <input name="username" placeholder="Username" required style="padding:10px; border:1px solid #ddd; border-radius:4px;">
-            <input name="password" type="password" placeholder="Password" required style="padding:10px; border:1px solid #ddd; border-radius:4px;">
-            <button type="submit" style="padding:10px; background:#007bff; color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">Login</button>
-        </form>
-    </div>
-    """
+            u = db_session.query(User).get(int(user_id))
+            return AdminUser(u) if u else None
+        except:
+            return None
 
-@flask_app.route('/logout')
-@login_required
-def admin_logout():
-    logout_user()
-    return redirect(url_for('admin_login'))
+    class MyAdminIndexView(AdminIndexView):
+        @expose('/')
+        def index(self):
+            if not current_user.is_authenticated:
+                return redirect(url_for('admin_login'))
+            return super(MyAdminIndexView, self).index()
 
-admin = Admin(
-    flask_app, 
-    name='SyllabusQA', 
-    index_view=MyAdminIndexView(),
-    url='/dashboard' 
-)
+    @flask_app.route('/')
+    def index():
+        return redirect(url_for('admin.index'))
 
-db_session = SessionLocal()
+    @flask_app.route('/login', methods=['GET', 'POST'])
+    def admin_login():
+        if current_user.is_authenticated:
+            return redirect(url_for('admin.index'))
 
-admin.add_view(UserView(User, db_session))
+        if request.method == 'POST':
+            username = request.form.get('username')
+            password = request.form.get('password')
+            try:
+                user = db_session.query(User).filter(User.username == username).first()
+                if user and user.is_superuser and AuthService.verify_password(password, user.password_hash):
+                    login_user(AdminUser(user))
+                    next_page = request.args.get('next')
+                    if not next_page or not next_page.startswith('/'):
+                        next_page = url_for('admin.index')
+                    return redirect(next_page)
+                else:
+                    flash("Invalid credentials or access denied.", "danger")
+            except Exception as e:
+                logger.error(f"Login Error: {e}")
+                flash("An unexpected error occurred.", "danger")
+        
+        return render_template('login.html')
 
-admin.add_view(SchoolView(School, db_session))
+    @flask_app.route('/logout')
+    @login_required
+    def admin_logout():
+        logout_user()
+        flash("You have been logged out.", "info")
+        return redirect(url_for('admin_login'))
 
-admin.add_view(SchoolRelatedView(Syllabus, db_session))
-admin.add_view(SchoolRelatedView(Class, db_session))
-admin.add_view(SchoolRelatedView(Subject, db_session))
+    @flask_app.errorhandler(403)
+    def forbidden(e):
+        return render_template('403.html'), 403
 
-admin.add_view(DocumentView(Document, db_session))
+    admin = Admin(
+        flask_app, 
+        name='SyllabusQA', 
+        index_view=MyAdminIndexView(),
+        url='/dashboard'
+    )
 
-@flask_app.teardown_appcontext
-def shutdown_session(exception=None):
-    db_session.close()
+    admin.add_view(UserView(User, db_session))
+    admin.add_view(SchoolView(School, db_session))
+    admin.add_view(SchoolRelatedView(Syllabus, db_session, category="School Data", name="Syllabi"))
+    admin.add_view(SchoolRelatedView(Class, db_session, category="School Data", name="Classes"))
+    admin.add_view(SchoolRelatedView(Subject, db_session, category="School Data", name="Subjects"))
+    admin.add_view(DocumentView(Document, db_session))
+
+    admin.add_link(MenuLink(name='Logout', category='', url='/admin/logout'))
+
+    return flask_app
