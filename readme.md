@@ -284,6 +284,7 @@ Interacts with the AI using the context of the uploaded documents.
 {
   "chatbot_user_id": "session_123",
   "question": "What is Newton's Second Law?",
+  "college": "tcs",
   "syllabus": "CBSE",
   "class_name": "Class 10",
   "subject": "Physics",
