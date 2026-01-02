@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     DEEPSEEK_MODEL_NAME: str = "deepseek-chat"
     
     GEMINI_EMBEDDING_MODEL_NAME: str = "models/gemini-embedding-001"
+    
+    COMPOSE_PROJECT_NAME: str
 
     class Config:
         env_file = ".env"
