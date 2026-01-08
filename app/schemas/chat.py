@@ -8,7 +8,7 @@ class ChatRequest(BaseModel):
     syllabus: str
     class_name: str
     subject: str
-
+    user_type: Literal["student", "teacher"] = "student"
     model: Literal["gemini", "openai", "deepseek"] = "gemini"
 
 class ChatResponse(BaseModel):

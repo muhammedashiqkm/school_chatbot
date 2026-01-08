@@ -93,7 +93,10 @@ async def chat_endpoint(
         session.state["class_name"] = req.class_name
         session.state["subject"] = req.subject
         
-        agent = get_agent(model_provider=req.model)
+        agent = get_agent(
+            model_provider=req.model,
+            user_type=req.user_type
+            )
         runner = Runner(
             agent=agent, 
             app_name=settings.PROJECT_NAME, 
